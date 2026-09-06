@@ -127,12 +127,55 @@ def reader_html(cbz, current):
 const cbz = {json.dumps(manga_key(cbz))};
 let page = {idx};
 const count = {count};
+const img = document.getElementById('page');
+const reader = document.querySelector('.reader');
+const previousPagePreload = new Image();
+const nextPagePreload = new Image();
+let fitScale;
+
+function imageUrl(n) {{
+  return `/image?cbz=${{encodeURIComponent(cbz)}}&page=${{n}}`;
+}}
+
+function preloadAdjacentPages() {{
+  if (page > 0) previousPagePreload.src = imageUrl(page - 1);
+  else previousPagePreload.removeAttribute('src');
+
+  if (page + 1 < count) nextPagePreload.src = imageUrl(page + 1);
+  else nextPagePreload.removeAttribute('src');
+}}
+
+function fitPage() {{
+  if (!img.naturalWidth || !img.naturalHeight) return;
+
+  // Establish the reading scale once. Keeping it stable lets browser zoom
+  // enlarge the page instead of having a viewport-based CSS rule refit it.
+  if (fitScale === undefined) {{
+    const style = getComputedStyle(reader);
+    const availableWidth = reader.clientWidth
+      - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+    const availableHeight = window.innerHeight
+      - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
+    fitScale = Math.min(1, availableWidth / img.naturalWidth,
+      availableHeight / img.naturalHeight);
+  }}
+
+  img.style.width = `${{img.naturalWidth * fitScale}}px`;
+  img.style.height = 'auto';
+}}
+
+function pageLoaded() {{
+  fitPage();
+  preloadAdjacentPages();
+}}
+
+img.addEventListener('load', pageLoaded);
+if (img.complete) pageLoaded();
+
 function navigate(n) {{
   if (n < 0 || n >= count) return;
   page = n;
-  const url = `/image?cbz=${{encodeURIComponent(cbz)}}&page=${{n}}`;
-  const img = document.getElementById('page');
-  img.src = url;
+  img.src = imageUrl(n);
   img.alt = `Page ${{n + 1}} of ${{count}}`;
   history.replaceState(null, '', `/read?cbz=${{encodeURIComponent(cbz)}}&page=${{n}}`);
   const body = new URLSearchParams({{cbz, page:n}});
