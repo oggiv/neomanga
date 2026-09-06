@@ -92,19 +92,7 @@ def html_document(title, body):
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{escape(title)}</title>
 <script src="https://unpkg.com/htmx.org@2.0.6"></script>
-<style>
-html, body {{ margin:0; padding:0; font-family:sans-serif; }}
-body {{ padding:2rem; background:#fff; color:#111; }}
-a {{ color:inherit; text-decoration:none; }}
-ul {{ list-style:none; margin:0; padding:0; }}
-li {{ margin:.45rem 0; }}
-.reader {{ min-height:100vh; box-sizing:border-box; background:#000; margin:-2rem; padding:1rem; position:relative; text-align:center; }}
-.reader img {{ display:block; width:auto; height:auto; margin:0 auto; }}
-.reader .prev {{ left:0; }}
-.reader .next {{ right:0; }}
-.reader .back {{ position:fixed; top:.75rem; left:.75rem; z-index:3; opacity:.8; color:#fff; background:#0008; border:0; padding:.35rem .5rem; cursor:pointer; }}
-@media (max-width:600px) {{ body {{ padding:1rem; }} .reader {{ margin:-1rem; }} }}
-</style>
+<link rel="stylesheet" href="/style.css">
 </head>
 <body>{body}</body>
 </html>'''
@@ -120,8 +108,8 @@ def reader_html(cbz, current):
     body = f'''
 <div class="reader" tabindex="0" data-cbz="{escape(manga_key(cbz), quote=True)}" data-page="{idx}">
 <img id="page" src="{image_url}" alt="Page {idx + 1} of {count}">
-<div class="prev" style="position:fixed;left:0;top:0;bottom:0;width:50%;cursor:pointer" onclick="goPrev()"></div>
-<div class="next" style="position:fixed;right:0;top:0;bottom:0;width:50%;cursor:pointer" onclick="goNext()"></div>
+<div class="prev" onclick="goPrev()"></div>
+<div class="next" onclick="goNext()"></div>
 </div>
 <script>
 const cbz = {json.dumps(manga_key(cbz))};
@@ -214,6 +202,8 @@ class Handler(BaseHTTPRequestHandler):
                 self.read_page(parsed.query)
             elif parsed.path == '/image':
                 self.image_page(parsed.query)
+            elif parsed.path == '/style.css':
+                self.style_page()
             else:
                 self.send_text(404, 'Not found')
         except ValueError as e:
@@ -321,6 +311,15 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header('Content-Type', mime)
         self.send_header('Cache-Control', 'private, max-age=31536000, immutable')
+        self.send_header('Content-Length', str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def style_page(self):
+        css_path = ROOT / 'style.css'
+        data = css_path.read_bytes()
+        self.send_response(200)
+        self.send_header('Content-Type', 'text/css; charset=utf-8')
         self.send_header('Content-Length', str(len(data)))
         self.end_headers()
         self.wfile.write(data)

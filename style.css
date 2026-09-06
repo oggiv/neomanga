@@ -1,0 +1,85 @@
+html, body {
+	margin: 0;
+	padding: 0;
+	font-family: sans-serif;
+}
+
+body {
+	padding: 2rem;
+	background: #181a1b;
+	color: gainsboro
+}
+
+a {
+	color: inherit;
+	text-decoration: none;
+}
+
+ul {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+li {
+	margin: .45rem 0;
+}
+
+.reader {
+	min-height: 100vh;
+	box-sizing: border-box;
+	background: #000;
+	margin: -2rem;
+	padding: 1rem;
+	position: relative;
+	text-align: center;
+}
+
+.reader img {
+	display: block;
+	width: auto;
+	height: auto;
+	margin: 0 auto;
+}
+
+.reader .prev {
+	position: fixed;
+	left: 0;
+	top: 0;
+	bottom: 0;
+	width: 50%;
+	cursor: pointer
+}
+
+.reader .next {
+	position: fixed;
+	right: 0;
+	top: 0;
+	bottom: 0;
+	width: 50%;
+	cursor: pointer
+}
+
+
+.reader .back {
+	position: fixed;
+	top: .75rem;
+	left: .75rem;
+	z-index: 3;
+	opacity: .8;
+	color: #fff;
+	background: #0008;
+	border: 0;
+	padding: .35rem .5rem;
+	cursor: pointer;
+}
+
+@media (max-width: 600px) {
+	body {
+		padding: 1rem;
+	}
+	 .reader {
+		margin: -1rem;
+	}
+
+}
