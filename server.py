@@ -7,7 +7,7 @@ import json, mimetypes, os, posixpath, sys, zipfile, threading
 ROOT = Path(__file__).resolve().parent
 MANGA_ROOT = (ROOT / 'manga').resolve()
 PROGRESS_FILE = ROOT / 'progress.json'
-IMAGE_EXTS = {'.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png'}
+IMAGE_EXTS = {'.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp'}
 progress_lock = threading.Lock()
 
 
