@@ -3,6 +3,7 @@ from pathlib import Path
 from urllib.parse import urlparse, parse_qs, quote, unquote
 from html import escape
 import json, mimetypes, os, posixpath, sys, zipfile, threading
+import re
 
 ROOT = Path(__file__).resolve().parent
 MANGA_ROOT = (ROOT / 'manga').resolve()
@@ -43,18 +44,24 @@ def safe_dir(rel):
         raise ValueError('outside manga root')
     return candidate
 
+def natural_sort_key(path):
+    return [
+        int(part) if part.isdigit() else part.casefold()
+        for part in re.split(r"(\d+)", path.name)
+    ]
+
 
 def cbz_files(folder):
     return sorted(
-        [p for p in folder.iterdir() if p.is_file() and p.suffix.lower() == '.cbz'],
-        key=lambda p: p.name.casefold(),
+        [p for p in folder.iterdir() if p.is_file() and p.suffix.lower() == ".cbz"],
+        key=natural_sort_key,
     )
 
 
 def subdirs(folder):
     return sorted(
         [p for p in folder.iterdir() if p.is_dir()],
-        key=lambda p: p.name.casefold(),
+        key=natural_sort_key,
     )
 
 
