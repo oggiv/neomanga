@@ -31,8 +31,10 @@ Only ``manga.json`` is meant to be edited by hand.
 
 import json
 import logging
+import errno
 import os
 import re
+import shutil
 import tempfile
 import threading
 import time
@@ -245,9 +247,10 @@ def download_chapter(client, folder, chapter_number, chapter_id):
     """Download one chapter into ``folder`` as a CBZ.
 
     Returns the final Path on success, None otherwise.  Pages are written
-    to a temp dir first and the finished CBZ is moved into place atomically,
-    so a failed/interrupted download never leaves a half-written CBZ behind.
-    Never overwrites an existing CBZ.
+    to a temp dir first and the finished CBZ is published atomically
+    (renamed, or staged-and-copied when the temp dir and library are on
+    different filesystems), so a failed/interrupted download never leaves
+    a half-written CBZ behind.  Never overwrites an existing CBZ.
     """
     from mangaplus_client import sniff_image_type
 
@@ -330,7 +333,30 @@ def download_chapter(client, folder, chapter_number, chapter_id):
         try:
             if target.exists():  # raced with another process; keep theirs
                 return target
-            os.replace(tmp_cbz, target)
+            try:
+                os.replace(tmp_cbz, target)
+            except OSError as exc:
+                if exc.errno != errno.EXDEV:
+                    raise
+                # Temp dir and library are on different filesystems
+                # (e.g. /tmp vs a mounted drive like /mnt/...), where an
+                # atomic rename is impossible.  Copy to a staging file in
+                # the target directory first, then rename into place, so a
+                # failed copy can never leave a half-written CBZ behind.
+                log.info("chapter %d: cross-device publish, copying %s",
+                         chapter_number, target.name)
+                if target.exists():
+                    return target
+                staging = target.with_name(target.name + ".download")
+                try:
+                    shutil.copy2(tmp_cbz, staging)
+                    os.replace(staging, target)
+                except OSError:
+                    try:
+                        staging.unlink()
+                    except OSError:
+                        pass
+                    raise
         except OSError as exc:
             log.warning("chapter %d: cannot publish CBZ: %s",
                         chapter_number, exc)
