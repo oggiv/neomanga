@@ -25,6 +25,20 @@ li {
 	margin: .45rem 0;
 }
 
+.mp-next {
+	color: gainsboro;
+}
+
+.mp-next p {
+	display: inline;
+	margin: .45rem 0;
+}
+
+.mp-next form {
+	display: inline;
+	margin-left: 5px;
+}
+
 .reader {
 	min-height: 100vh;
 	box-sizing: border-box;
