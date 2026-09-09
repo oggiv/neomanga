@@ -3,7 +3,19 @@ from pathlib import Path
 from urllib.parse import urlparse, parse_qs, quote, unquote
 from html import escape
 import json, mimetypes, os, posixpath, sys, zipfile, threading
+import logging
 import re
+
+log = logging.getLogger('reader')
+
+try:
+    import manga_sync
+    from manga_sync import SyncScheduler
+except Exception as exc:  # reader must work even without sync deps
+    manga_sync = None
+    SyncScheduler = None
+    logging.getLogger('reader').warning(
+        'MangaPlus sync disabled: %s', exc)
 
 ROOT = Path(__file__).resolve().parent
 MANGA_ROOT = (ROOT / 'manga').resolve()
@@ -205,6 +217,8 @@ class Handler(BaseHTTPRequestHandler):
                 q = parse_qs(parsed.query)
                 rel = q.get('dir', [''])[0]
                 self.directory_page(rel)
+            elif parsed.path == '/sync':
+                self.sync_page(parsed.query)
             elif parsed.path == '/read':
                 self.read_page(parsed.query)
             elif parsed.path == '/image':
@@ -268,6 +282,7 @@ class Handler(BaseHTTPRequestHandler):
         dirs = subdirs(folder)
         files = cbz_files(folder)
         items = []
+        items.extend(self.mangaplus_banner(folder))
         if folder != MANGA_ROOT:
             parent = relative_path(folder.parent).as_posix() if folder.parent != MANGA_ROOT else ''
             href = '/' if not parent else '/?dir=' + quote(parent, safe='')
@@ -287,6 +302,56 @@ class Handler(BaseHTTPRequestHandler):
             items.append(f'<li><a href="/read?cbz={quote(key, safe="")}" target="_blank" rel="noopener">{escape(f.stem)}</a>{suffix}</li>')
         body = '<ul id="listing" hx-target="#listing" hx-push-url="true">' + ''.join(items) + '</ul>'
         self.send_text(200, html_document('Manga', body))
+
+    def mangaplus_banner(self, folder):
+        """Next-release banner for MangaPlus-associated folders.
+
+        Uses only cached metadata; never blocks on network I/O.
+        Returns a list of <li> items (empty for unconfigured folders).
+        """
+        if manga_sync is None:
+            return []
+        try:
+            rel = relative_path(folder).as_posix()
+        except ValueError:
+            return []
+        folders, _ = manga_sync.load_config()
+        if rel not in folders:
+            return []
+        status = manga_sync.get_status(rel)
+        title = status.get('title_name') or folder.name
+        timestamp = status.get('next_timestamp')
+        if timestamp:
+            when = escape(manga_sync.format_next_release(timestamp))
+            line = f'Next chapter: {when}'
+        else:
+            line = 'Next chapter: Unknown'
+        return [f'<li class="mp-next"><p>{escape(title)} - {line} '
+                f'<form action="/sync" method="get">'
+                f'<input type="hidden" name="dir" value="{escape(rel, quote=True)}">'
+                f'<input type="submit" value="Sync now"></form></p></li>']
+
+    def sync_page(self, query):
+        if manga_sync is None or SyncScheduler is None:
+            self.send_text(503, 'MangaPlus sync is not available')
+            return
+        scheduler = getattr(self.server, 'mp_scheduler', None)
+        if scheduler is None:
+            self.send_text(503, 'MangaPlus sync is not running')
+            return
+        scheduler.trigger_now()
+        q = parse_qs(query)
+        rel = q.get('dir', [''])[0]
+        try:
+            folder = safe_dir(unquote(rel))
+            if not folder.is_dir():
+                raise FileNotFoundError(rel)
+            location = '/' if not rel else '/?dir=' + quote(rel, safe='')
+        except (ValueError, FileNotFoundError):
+            location = '/'
+        self.send_response(303)
+        self.send_header('Location', location)
+        self.end_headers()
 
     def read_page(self, query):
         q = parse_qs(query)
@@ -333,6 +398,9 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main():
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s %(name)s %(levelname)s: %(message)s')
     if not MANGA_ROOT.exists():
         MANGA_ROOT.mkdir(parents=True)
     try:
@@ -344,12 +412,19 @@ def main():
         print('Port must be between 1 and 65535', file=sys.stderr)
         return 2
     server = ThreadingHTTPServer(('0.0.0.0', port), Handler)
+    scheduler = None
+    if SyncScheduler is not None:
+        scheduler = SyncScheduler()
+        scheduler.start()  # background: immediate sync, then release-driven
+        server.mp_scheduler = scheduler
     print(f'Manga reader: http://127.0.0.1:{port}/')
     try:
         server.serve_forever()
     except KeyboardInterrupt:
         print()
     finally:
+        if scheduler is not None:
+            scheduler.stop()
         server.server_close()
     return 0
 

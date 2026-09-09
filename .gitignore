@@ -6,3 +6,8 @@
 !.gitignore
 !server.py
 !style.css
+!mangaplus_client.py
+!manga_sync.py
+!discord.py
+!LICENSE
+!README.md
