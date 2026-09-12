@@ -204,10 +204,14 @@ function navigate(n) {{
   img.src = imageUrl(n);
   img.alt = `Page ${{n + 1}} of ${{count}}`;
   history.replaceState(null, '', `/read?cbz=${{encodeURIComponent(cbz)}}&page=${{n}}`);
-  const body = new URLSearchParams({{cbz, page:n}});
+  reportProgress();
+}}
+function reportProgress() {{
+  const body = new URLSearchParams({{cbz, page}});
   if (navigator.sendBeacon) navigator.sendBeacon('/progress', body);
   else fetch('/progress', {{method:'POST', headers:{{'Content-Type':'application/x-www-form-urlencoded'}}, body}});
 }}
+reportProgress();
 function goPrev() {{
   if (page > 0) navigate(page - 1);
   else if (prevCbz) location.href = `/read?cbz=${{encodeURIComponent(prevCbz)}}&page=${{prevCount - 1}}`;
