@@ -322,9 +322,12 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 n = len(zip_images(f))
                 suffix = f' <small>({min(p + 1, n)}/{n})</small>'
+                # Finished chapters restart from the first page for rereading.
+                resume = '' if p + 1 < n else '&amp;page=0'
             except (OSError, zipfile.BadZipFile):
                 suffix = ''
-            items.append(f'<li><a href="/read?cbz={quote(key, safe="")}" target="_blank" rel="noopener">{escape(f.stem)}</a>{suffix}</li>')
+                resume = ''
+            items.append(f'<li><a href="/read?cbz={quote(key, safe="")}{resume}" target="_blank" rel="noopener">{escape(f.stem)}</a>{suffix}</li>')
         body = '<ul id="listing" hx-target="#listing" hx-push-url="true">' + ''.join(items) + '</ul>'
         self.send_text(200, html_document('Manga', body))
 
