@@ -124,6 +124,22 @@ def reader_html(cbz, current):
     count = len(images)
     image_url = f'/image?cbz={key}&page={idx}'
     prev_action = f"document.getElementById('page').click()" if False else ''
+    # Next/previous chapter in the same order as the directory view of
+    # this folder.
+    try:
+        siblings = cbz_files(cbz.parent)
+        pos = next(i for i, s in enumerate(siblings) if s.name == cbz.name)
+        next_key = manga_key(siblings[pos + 1]) if pos + 1 < len(siblings) else None
+    except (OSError, StopIteration):
+        next_key = None
+        pos = None
+    prev_key, prev_count = None, 0
+    if pos is not None and pos > 0:
+        try:
+            prev_count = len(zip_images(siblings[pos - 1]))
+            prev_key = manga_key(siblings[pos - 1])
+        except (OSError, zipfile.BadZipFile):
+            prev_key, prev_count = None, 0
     body = f'''
 <div class="reader" tabindex="0" data-cbz="{escape(manga_key(cbz), quote=True)}" data-page="{idx}">
 <img id="page" src="{image_url}" alt="Page {idx + 1} of {count}">
@@ -132,6 +148,9 @@ def reader_html(cbz, current):
 </div>
 <script>
 const cbz = {json.dumps(manga_key(cbz))};
+const nextCbz = {json.dumps(next_key)};
+const prevCbz = {json.dumps(prev_key)};
+const prevCount = {prev_count};
 let page = {idx};
 const count = {count};
 const img = document.getElementById('page');
@@ -189,8 +208,14 @@ function navigate(n) {{
   if (navigator.sendBeacon) navigator.sendBeacon('/progress', body);
   else fetch('/progress', {{method:'POST', headers:{{'Content-Type':'application/x-www-form-urlencoded'}}, body}});
 }}
-function goPrev() {{ navigate(page - 1); }}
-function goNext() {{ navigate(page + 1); }}
+function goPrev() {{
+  if (page > 0) navigate(page - 1);
+  else if (prevCbz) location.href = `/read?cbz=${{encodeURIComponent(prevCbz)}}&page=${{prevCount - 1}}`;
+}}
+function goNext() {{
+  if (page + 1 < count) navigate(page + 1);
+  else if (nextCbz) location.href = `/read?cbz=${{encodeURIComponent(nextCbz)}}&page=0`;
+}}
 document.addEventListener('keydown', e => {{
   if (e.key === 'ArrowLeft') {{ e.preventDefault(); goPrev(); }}
   else if (e.key === 'ArrowRight') {{ e.preventDefault(); goNext(); }}
